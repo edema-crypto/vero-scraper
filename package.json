@@ -1,0 +1,18 @@
+{
+  "name": "vero-scraper",
+  "version": "1.0.0",
+  "description": "NAFDAC product verification scraper service for Vero",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "cheerio": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "puppeteer-extra": "latest",
+    "puppeteer-extra-plugin-recaptcha": "latest",
+    "puppeteer-extra-plugin-stealth": "latest"
+  }
+}
