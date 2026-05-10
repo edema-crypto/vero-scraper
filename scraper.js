@@ -19,8 +19,8 @@ if (process.env.TWOCAPTCHA_API_KEY) {
   )
 }
 
-const NAFDAC_URL = 'https://registration.nafdac.gov.ng/Home/VerifyProduct'
-const SCRAPE_TIMEOUT = 30000 // 30 seconds
+const NAFDAC_URL = 'https://registration.nafdac.gov.ng/Home'
+const SCRAPE_TIMEOUT = 60000 // 60 seconds (captcha solving takes time)
 
 /**
  * Scrapes the NAFDAC verification portal for product details.
@@ -35,7 +35,7 @@ async function scrapeNafdac(nafdacNumber) {
     const result = await Promise.race([
       performScrape(nafdacNumber),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Scrape timed out after 30 seconds')), SCRAPE_TIMEOUT)
+        setTimeout(() => reject(new Error('Scrape timed out after 60 seconds')), SCRAPE_TIMEOUT)
       ),
     ])
     return result
@@ -79,40 +79,43 @@ async function performScrape(nafdacNumber) {
       timeout: 20000,
     })
 
+    // Scroll down to the verification form section
+    await page.evaluate(() => {
+      const el = document.querySelector('#CertificateNumber')
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+
     // Wait for the form to be present
-    await page.waitForSelector('#CertificateNumber, input[name="CertificateNumber"]', {
+    await page.waitForSelector('#CertificateNumber', {
       timeout: 10000,
     })
 
     // Fill the certificate number field
     console.log(`[SCRAPER] Filling form with: ${nafdacNumber}`)
-    const inputSelector = '#CertificateNumber, input[name="CertificateNumber"]'
-    await page.click(inputSelector, { clickCount: 3 }) // Select any existing text
-    await page.type(inputSelector, nafdacNumber, { delay: 50 })
+    await page.click('#CertificateNumber', { clickCount: 3 })
+    await page.type('#CertificateNumber', nafdacNumber, { delay: 50 })
 
-    // Check if there's a captcha and try to solve it
-    const hasCaptcha = await page.$('.g-recaptcha, #recaptcha, iframe[src*="recaptcha"]')
-    if (hasCaptcha) {
-      console.log(`[SCRAPER] Captcha detected`)
-      if (process.env.TWOCAPTCHA_API_KEY) {
-        console.log(`[SCRAPER] Attempting to solve captcha with 2captcha...`)
-        try {
-          const { solved } = await page.solveRecaptchas()
-          console.log(`[SCRAPER] Captcha solve result: ${solved ? 'solved' : 'failed'}`)
-        } catch (captchaError) {
-          console.warn(`[SCRAPER] Captcha solving failed: ${captchaError.message}`)
-          return { ok: false, message: 'Captcha solving failed. Please try again.' }
-        }
-      } else {
-        return { ok: false, message: 'Captcha detected but no solver configured.' }
+    // The verify button IS a recaptcha v3 button (g-recaptcha class)
+    // reCAPTCHA v3 is invisible — it scores the user silently
+    // With stealth plugin, we may pass the score check without solving anything
+    console.log(`[SCRAPER] Captcha (reCAPTCHA v3) is on the submit button`)
+
+    // If 2captcha is configured, solve any captchas first
+    if (process.env.TWOCAPTCHA_API_KEY) {
+      console.log(`[SCRAPER] Attempting to solve captcha with 2captcha...`)
+      try {
+        const { solved } = await page.solveRecaptchas()
+        console.log(`[SCRAPER] Captcha solve result: ${solved ? 'solved' : 'no captcha to solve'}`)
+      } catch (captchaError) {
+        console.warn(`[SCRAPER] Captcha solving failed: ${captchaError.message}, continuing anyway...`)
       }
     }
 
-    // Submit the form
-    console.log(`[SCRAPER] Submitting form...`)
-    const submitSelector = 'button[type="submit"], input[type="submit"], #btnVerify, .btn-primary'
+    // Click the verify button
+    console.log(`[SCRAPER] Clicking verify button...`)
+    const submitSelector = 'button.g-recaptcha.btn-primary'
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => null),
+      page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 20000 }).catch(() => null),
       page.click(submitSelector),
     ])
 
