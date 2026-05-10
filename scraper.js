@@ -58,20 +58,7 @@ const CACHED_PRODUCTS = {
 async function scrapeNafdac(nafdacNumber) {
   let browser = null
 
-  try {
-    // try the real portal first
-    const result = await Promise.race([
-      performScrape(nafdacNumber),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Scrape timed out after 60 seconds')), SCRAPE_TIMEOUT)
-      ),
-    ])
-    return result
-  } catch (error) {
-    console.warn(`[SCRAPER] Real scrape failed: ${error.message}`)
-  }
-
-  // fallback to cache
+  // check cache first (instant response)
   const cached = CACHED_PRODUCTS[nafdacNumber]
   if (cached) {
     console.log(`[SCRAPER] Returning cached result for ${nafdacNumber}`)
@@ -82,6 +69,19 @@ async function scrapeNafdac(nafdacNumber) {
         ...cached,
       },
     }
+  }
+
+  // not in cache — try the real portal
+  try {
+    const result = await Promise.race([
+      performScrape(nafdacNumber),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Scrape timed out after 60 seconds')), SCRAPE_TIMEOUT)
+      ),
+    ])
+    return result
+  } catch (error) {
+    console.warn(`[SCRAPER] Real scrape failed: ${error.message}`)
   }
 
   return {
