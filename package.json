@@ -11,6 +11,7 @@
     "cheerio": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "puppeteer": "latest",
     "puppeteer-extra": "latest",
     "puppeteer-extra-plugin-recaptcha": "latest",
     "puppeteer-extra-plugin-stealth": "latest"
